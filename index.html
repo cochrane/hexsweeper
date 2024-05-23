@@ -1,0 +1,399 @@
+<!DOCTYPE html>
+<html>
+    <head>
+        <meta charset="utf-8">
+        <title>Hexsweeper</title>
+        <script>
+            // Define the hex grid
+            // width and height should be odd
+            class Cell {
+                constructor(x, y) {
+                    this.x = x;
+                    this.y = y;
+                    this.isMine = false;
+                    this.isOpen = false;
+                    this.isMarked = false;
+                    this.mineNeighbors = -1;
+                    this.debugHighlighted = false;
+                }
+            }
+            
+            class Point {
+                constructor(x, y) {
+                    this.x = x;
+                    this.y = y;
+                }
+            }
+
+            class Grid {
+
+                constructor(width, height, cellRadius, minesCount) {
+                    this.width = width;
+                    this.height = height;
+                    this.minesCount = minesCount;
+                    this.hasSetMines = false; // First click must never trigger a mine, so calculate mines only on first click.
+                    this.rows = [];
+                    var count = 0;
+                    for (var y = 0; y < height; y++) {
+                        var rowLength = width - Grid.xOffset(y, height) * 2;
+                        var row = [];
+                        for (var x = 0; x < rowLength; x++) {
+                            row.push(new Cell(x, y));
+                            count += 1;
+                        }
+                        this.rows.push(row);
+                    }
+                    if (count < (this.minesCount - 1)) {
+                        this.minesCount = count - 1;
+                    }
+
+                    // Graphics
+                    this.cellRadius = cellRadius; // Radius of circle through the tips of the hexagon (also edge length)
+                    this.cellDiagonalY = cellRadius * 0.5; // abs y component of line from center to corner except directly above/below
+                    this.cellDiagonalX = Math.sqrt(this.cellRadius*this.cellRadius - this.cellDiagonalY*this.cellDiagonalY); // same for x
+                }
+
+                findMinesIfNecessary(clickedCell) {
+                    if (this.hasSetMines) {
+                        return;
+                    }
+
+                    var placedMines = 0;
+                    while (placedMines < this.minesCount) {
+                        var y = Math.floor(Math.random() * this.height);
+                        var x = Math.floor(Math.random() * this.rows[y].length);
+                        if (x == clickedCell.x && y == clickedCell.y) {
+                            continue;
+                        }
+                        var cell = this.rows[y][x];
+                        if (cell.isMine) {
+                            continue;
+                        }
+                        cell.isMine = true;
+                        placedMines += 1;
+                    }
+
+                    this.hasSetMines = true;
+                }
+
+                // Not sorted in any particular order
+                neighbours(cell) {
+                    var midpoint = (this.height - 1) / 2;
+                    var result = [];
+                    // Neighbors left and right
+                    this.addCellIfExists(result, cell.x - 1, cell.y);
+                    this.addCellIfExists(result, cell.x + 1, cell.y);
+                    
+                    // These depend on where they are in the grid because I was lazy with the coordinate system
+                    // This is literally the only place where it matters so I think I should be okay.
+                    // Top left
+                    if (cell.y <= midpoint) {
+                        this.addCellIfExists(result, cell.x - 1, cell.y - 1);
+                    } else {
+                        this.addCellIfExists(result, cell.x, cell.y - 1);
+                    }
+
+                    // Top right
+                    if (cell.y <= midpoint) {
+                        this.addCellIfExists(result, cell.x, cell.y - 1);
+                    } else {
+                        this.addCellIfExists(result, cell.x + 1, cell.y - 1);
+                    }
+
+                    // Bottom left
+                    // Note < instead of <= here
+                    if (cell.y < midpoint) {
+                        this.addCellIfExists(result, cell.x, cell.y + 1);
+                    } else {
+                        this.addCellIfExists(result, cell.x - 1, cell.y + 1);
+                    }
+
+                    // Bottom right
+                    if (cell.y < midpoint) {
+                        this.addCellIfExists(result, cell.x + 1, cell.y + 1);
+                    } else {
+                        this.addCellIfExists(result, cell.x, cell.y + 1);
+                    }
+                    return result;
+                }
+                addCellIfExists(result, x, y) {
+                    if (y < 0 || y >= this.rows.length) {
+                        return
+                    }
+                    var row = this.rows[y];
+                    if (x < 0 || x >= row.length) {
+                        return;
+                    }
+                    result.push(row[x]);
+                }
+
+                /** Logical offset from the start of the widest row for the given row. */
+                static xOffset(y, height) {
+                    var midpoint = (height - 1) / 2;
+                    return 0.5 * Math.abs(y - midpoint);
+                }
+
+                /** Logical offset from the start of the widest row for the given row. */
+                xOffset(y) {
+                    return Grid.xOffset(y, this.height);
+                }
+
+                cellMidpoint(x, y) {
+                    var midpointX = (x + grid.xOffset(y)) * this.cellDiagonalX * 2 + this.cellDiagonalX;
+                    var midpointY = (y * (this.cellRadius*2 - this.cellDiagonalY)) + this.cellRadius;
+                    return new Point(midpointX, midpointY);
+                }
+
+                cellCorners(x, y) {
+                    var midpoint = this.cellMidpoint(x, y);
+                    return [
+                        new Point(midpoint.x - this.cellDiagonalX, midpoint.y - this.cellDiagonalY),
+                        new Point(midpoint.x, midpoint.y - this.cellRadius),
+                        new Point(midpoint.x + this.cellDiagonalX, midpoint.y - this.cellDiagonalY),
+                        new Point(midpoint.x + this.cellDiagonalX, midpoint.y + this.cellDiagonalY),
+                        new Point(midpoint.x, midpoint.y + this.cellRadius),
+                        new Point(midpoint.x - this.cellDiagonalX, midpoint.y + this.cellDiagonalY),
+                    ];
+                }
+
+                cellAt(mouseX, mouseY) {
+                    // I'm tired, let's do this simple
+                    // Will allow a bit of extra click distance just outside the edge
+                    var closestDistance = 1e9;
+                    var closestCell = null;
+                    for (var y = 0; y < this.height; y++) {
+                        for (var x = 0; x < this.rows[y].length; x++) {
+                            var midpoint = this.cellMidpoint(x, y);
+                            var distance = Math.sqrt((midpoint.x - mouseX)*(midpoint.x - mouseX) + (midpoint.y - mouseY)*(midpoint.y - mouseY));
+                            if (distance <= this.cellRadius && distance < closestDistance) {
+                                closestCell = this.rows[y][x];
+                                closestDistance = distance;
+                            }
+                        }
+                    }
+                    return closestCell;
+                }
+
+                pixelHeight() {
+                    return this.height * (this.cellRadius*2) - (this.height - 1) * this.cellDiagonalY;
+                }
+
+                pixelWidth() {
+                    return this.width * this.cellDiagonalX * 2;
+                }
+            }
+
+            var grid = new Grid(9, 7, 20, 10);
+            var state = "normal"
+
+            function drawCanvas() {
+                ctx = document.getElementById("canvas").getContext("2d");
+                ctx.fillStyle = "#ABC";
+                for (var y = 0; y < grid.height; y++) {
+                    for (var x = 0; x < grid.rows[y].length; x++) {
+                        var cell = grid.rows[y][x];
+                        if (cell.isOpen) {
+                            ctx.fillStyle = "#CCC";
+                        } else {
+                            ctx.fillStyle = "#999"
+                        }
+                        if (cell.debugHighlighted) {
+                            ctx.fillStyle = "#A0A";
+                            cell.debugHighlighted = false;
+                        }
+                        points = grid.cellCorners(x, y);
+                        ctx.beginPath();
+                        ctx.moveTo(points[0].x, points[0].y);
+                        for (var i = 1; i < points.length; i++) {
+                            ctx.lineTo(points[i].x, points[i].y);
+                        }
+                        ctx.closePath();
+                        ctx.fill();
+                        ctx.stroke();
+
+                        if (cell.isMine && (cell.isOpen || state == "lost")) {
+                            midpoint = grid.cellMidpoint(x, y);
+                            ctx.fillStyle = "#000";
+                            ctx.beginPath();
+                            ctx.ellipse(midpoint.x, midpoint.y, 7, 7, 0, 0, Math.PI * 2);
+                            ctx.closePath();
+                            ctx.fill();
+                            ctx.beginPath();
+                            ctx.lineWidth = 1.5;
+                            for (var i = 0; i < 4; i++) {
+                                angle = i * Math.PI / 4;
+
+                                ctx.moveTo(midpoint.x - Math.sin(angle) * 10, midpoint.y + Math.cos(angle) * 10);
+                                ctx.lineTo(midpoint.x + Math.sin(angle) * 10, midpoint.y - Math.cos(angle) * 10);
+                            }
+                            ctx.closePath();
+                            ctx.stroke();
+                            ctx.lineWidth = 1;
+
+                        }
+                        if (cell.isMarked || (state == "won" && cell.isMine)) {
+                            midpoint = grid.cellMidpoint(x, y);
+                            ctx.fillStyle = "#550";
+                            ctx.fillRect(midpoint.x - 5, midpoint.y - 10, 2, 20);
+                            ctx.fillStyle = "#A00";
+                            ctx.beginPath();
+                            ctx.moveTo(midpoint.x - 5, midpoint.y - 10);
+                            ctx.lineTo(midpoint.x + 5, midpoint.y - 5);
+                            ctx.lineTo(midpoint.x - 5, midpoint.y);
+                            ctx.closePath();
+                            ctx.fill();
+                        }
+
+                        ctx.fillStyle = "#FF0";
+                        midpoint = grid.cellMidpoint(x, y);
+                        //ctx.fillText(x + "," + y, midpoint.x - 10, midpoint.y);
+                        if (cell.mineNeighbors > 0) {
+                            if (cell.mineNeighbors == 1) {
+                                ctx.fillStyle = "#00F";
+                            } else if (cell.mineNeighbors == 2) {
+                                ctx.fillStyle = "#1B1";
+                            } else if (cell.mineNeighbors == 3) {
+                                ctx.fillStyle = "#B44";
+                            } else if (cell.mineNeighbors == 4) {
+                                ctx.fillStyle = "#007";
+                            } else if (cell.mineNeighbors == 5) {
+                                ctx.fillStyle = "#700";
+                            } else if (cell.mineNeighbors == 6) {
+                                ctx.fillStyle = "#070";
+                            } else {
+                                ctx.fillStyle = "#ABC"; // ?
+                            }
+                            ctx.textAlign = "center";
+                            ctx.textBaseline = "middle";
+                            ctx.font = "1.5em bold serif";
+                            ctx.fillText(cell.mineNeighbors, midpoint.x, midpoint.y);
+                        }
+                    }
+                }
+            }
+
+            function openEmptyCell(mouseCell) {
+                // Flood fill if necessary
+                var cellQueue = [ mouseCell ];
+                while (cellQueue.length > 0) {
+                    var cell = cellQueue.pop();
+                    cell.isOpen = true;
+                    var mineNeighbors = 0;
+                    var neighbors = grid.neighbours(cell);
+                    for (var i in neighbors) {
+                        if (neighbors[i].isMine) {
+                            mineNeighbors += 1;
+                        }
+                    }
+                    cell.mineNeighbors = mineNeighbors;
+                    if (mineNeighbors == 0) {
+                        for (var i in neighbors) {
+                            if (neighbors[i].mineNeighbors < 0 && !neighbors[i].isMarked) {
+                                cellQueue.push(neighbors[i]);
+                            }
+                        }
+                    }
+                }
+            }
+
+            function winGame() {
+                state = "won";
+                console.log("Won");
+                for (var y = 0; y < grid.height; y++) {
+                    var row = grid.rows[y];
+                    for (var x = 0; x < row.length; x++) {
+                        var cell = row[x];
+                        if (cell.isMined) {
+                            cell.isMarked = true;
+                        } else if (!cell.isOpen) {
+                            openEmptyCell(cell);
+                        }
+                    }
+                }
+            }
+
+            function loaded(e) {
+                canvas = document.getElementById("canvas");
+                canvas.addEventListener("click", (event) => {
+                    if (state != "normal") {
+                        // Starting new game
+                        grid = new Grid(9, 7, 20, 10);
+                        state = "normal";
+                        drawCanvas();
+                        return;
+                    }
+
+                    mouseCell = grid.cellAt(event.offsetX, event.offsetY);
+                    if (!mouseCell || mouseCell.isOpen || event.button > 1) {
+                        return;
+                    }
+                    if (state != "normal") {
+                        // Starting new game
+                        grid = new Grid(9, 7, 20, 10);
+                        state = "normal";
+                        mouseCell = grid.cellAt(event.offsetX, event.offsetY);
+                    }
+
+                    grid.findMinesIfNecessary(mouseCell);
+                    if (event.button == 1 || event.shiftKey) {
+                        mouseCell.isMarked = !mouseCell.isMarked;
+
+                        // Check if all the mines are marked
+                        var unmarkedMines = false;
+                        for (var y = 0; y < grid.height; y++) {
+                            var row = grid.rows[y];
+                            for (var x = 0; x < row.length; x++) {
+                                var cell = row[x];
+                                if (cell.isMine && !cell.isMarked) {
+                                    unmarkedMines = true;
+                                }
+                            }
+                        }
+                        if (!unmarkedMines) {
+                            winGame();
+                        }
+                    } else if (!mouseCell.isMarked) {
+                        mouseCell.isOpen = true;
+                        if (mouseCell.isMine) {
+                            console.log("Lost");
+                            state = "lost";
+                            // Boom. Lost
+                        } else {
+                            // Flood fill if necessary
+                            openEmptyCell(mouseCell);
+
+                            // Check if all open fields are open
+                            var fieldsToOpen = false;
+                            for (var y = 0; y < grid.height; y++) {
+                                var row = grid.rows[y];
+                                for (var x = 0; x < row.length; x++) {
+                                    var cell = row[x];
+                                    if (!cell.isMine && !cell.isOpen && !cell.isMarked) {
+                                        fieldsToOpen = true;
+                                    }
+                                }
+                            }
+                            if (!fieldsToOpen) {
+                                winGame();
+                            }
+                        }
+                    }
+
+                    drawCanvas();
+                });
+
+                canvas.width = grid.pixelWidth();
+                canvas.height = grid.pixelHeight();
+
+                drawCanvas();
+            }
+
+            window.onload = loaded
+        </script>
+    </head>
+    <body>
+        <canvas id="canvas"></canvas>
+        <p>Hold shift to mark. On mobile, wait until I've implemented something for that.</p>
+        <p>When won or lost, click to start new game.</p>
+    </body>
+</html>
