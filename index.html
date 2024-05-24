@@ -15,6 +15,7 @@
                     this.isMarked = false;
                     this.mineNeighbors = -1;
                     this.debugHighlighted = false;
+                    this.exploded = false;
                 }
             }
             
@@ -183,8 +184,14 @@
                 }
             }
 
-            var grid = new Grid(9, 7, 20, 10);
-            var state = "normal"
+            var grid = null;
+            var state = null;
+            
+            function restart() {
+                grid = new Grid(9, 7, 20, 10);
+                state = "normal";
+            }
+            restart();
 
             function drawCanvas() {
                 ctx = document.getElementById("canvas").getContext("2d");
@@ -201,6 +208,9 @@
                             ctx.fillStyle = "#A0A";
                             cell.debugHighlighted = false;
                         }
+                        if (cell.exploded) {
+                            ctx.fillStyle = "#F33";
+                        }
                         points = grid.cellCorners(x, y);
                         ctx.beginPath();
                         ctx.moveTo(points[0].x, points[0].y);
@@ -211,8 +221,8 @@
                         ctx.fill();
                         ctx.stroke();
 
+                        var midpoint = grid.cellMidpoint(x, y);
                         if (cell.isMine && (cell.isOpen || state == "lost")) {
-                            midpoint = grid.cellMidpoint(x, y);
                             ctx.fillStyle = "#000";
                             ctx.beginPath();
                             ctx.ellipse(midpoint.x, midpoint.y, 7, 7, 0, 0, Math.PI * 2);
@@ -232,7 +242,6 @@
 
                         }
                         if (cell.isMarked || (state == "won" && cell.isMine)) {
-                            midpoint = grid.cellMidpoint(x, y);
                             ctx.fillStyle = "#550";
                             ctx.fillRect(midpoint.x - 5, midpoint.y - 10, 2, 20);
                             ctx.fillStyle = "#A00";
@@ -245,9 +254,8 @@
                         }
 
                         ctx.fillStyle = "#FF0";
-                        midpoint = grid.cellMidpoint(x, y);
                         //ctx.fillText(x + "," + y, midpoint.x - 10, midpoint.y);
-                        if (cell.mineNeighbors > 0) {
+                        if (cell.mineNeighbors > 0 && !cell.isMine && cell.isOpen) {
                             if (cell.mineNeighbors == 1) {
                                 ctx.fillStyle = "#00F";
                             } else if (cell.mineNeighbors == 2) {
@@ -329,9 +337,9 @@
                     }
                     if (state != "normal") {
                         // Starting new game
-                        grid = new Grid(9, 7, 20, 10);
-                        state = "normal";
-                        mouseCell = grid.cellAt(event.offsetX, event.offsetY);
+                        restart();
+                        drawCanvas();
+                        return;
                     }
 
                     grid.findMinesIfNecessary(mouseCell);
@@ -357,6 +365,7 @@
                         if (mouseCell.isMine) {
                             console.log("Lost");
                             state = "lost";
+                            mouseCell.exploded = true;
                             // Boom. Lost
                         } else {
                             // Flood fill if necessary
