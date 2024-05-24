@@ -3,7 +3,15 @@
     <head>
         <meta charset="utf-8">
         <title>Hexsweeper</title>
+        <style>
+            body {
+                text-align: center;
+            }
+        </style>
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
         <script>
+            "use strict";
+
             // Define the hex grid
             // width and height should be odd
             class Cell {
@@ -194,11 +202,11 @@
             restart();
 
             function drawCanvas() {
-                ctx = document.getElementById("canvas").getContext("2d");
+                let ctx = document.getElementById("canvas").getContext("2d");
                 ctx.fillStyle = "#ABC";
-                for (var y = 0; y < grid.height; y++) {
-                    for (var x = 0; x < grid.rows[y].length; x++) {
-                        var cell = grid.rows[y][x];
+                for (let y = 0; y < grid.height; y++) {
+                    for (let x = 0; x < grid.rows[y].length; x++) {
+                        let cell = grid.rows[y][x];
                         if (cell.isOpen) {
                             ctx.fillStyle = "#CCC";
                         } else {
@@ -211,17 +219,17 @@
                         if (cell.exploded) {
                             ctx.fillStyle = "#F33";
                         }
-                        points = grid.cellCorners(x, y);
+                        let points = grid.cellCorners(x, y);
                         ctx.beginPath();
                         ctx.moveTo(points[0].x, points[0].y);
-                        for (var i = 1; i < points.length; i++) {
+                        for (let i = 1; i < points.length; i++) {
                             ctx.lineTo(points[i].x, points[i].y);
                         }
                         ctx.closePath();
                         ctx.fill();
                         ctx.stroke();
 
-                        var midpoint = grid.cellMidpoint(x, y);
+                        const midpoint = grid.cellMidpoint(x, y);
                         if (cell.isMine && (cell.isOpen || state == "lost")) {
                             ctx.fillStyle = "#000";
                             ctx.beginPath();
@@ -230,8 +238,8 @@
                             ctx.fill();
                             ctx.beginPath();
                             ctx.lineWidth = 1.5;
-                            for (var i = 0; i < 4; i++) {
-                                angle = i * Math.PI / 4;
+                            for (let i = 0; i < 4; i++) {
+                                const angle = i * Math.PI / 4;
 
                                 ctx.moveTo(midpoint.x - Math.sin(angle) * 10, midpoint.y + Math.cos(angle) * 10);
                                 ctx.lineTo(midpoint.x + Math.sin(angle) * 10, midpoint.y - Math.cos(angle) * 10);
@@ -320,21 +328,36 @@
                 }
             }
 
+            function toggleCellMarked(mouseCell) {
+                mouseCell.isMarked = !mouseCell.isMarked;
+
+                // Check if all the mines are marked
+                var unmarkedMines = false;
+                for (var y = 0; y < grid.height; y++) {
+                    var row = grid.rows[y];
+                    for (var x = 0; x < row.length; x++) {
+                        var cell = row[x];
+                        if (cell.isMine && !cell.isMarked) {
+                            unmarkedMines = true;
+                        }
+                    }
+                }
+                if (!unmarkedMines) {
+                    winGame();
+                }
+                drawCanvas();
+            }
+
             function loaded(e) {
                 canvas = document.getElementById("canvas");
+                const hasAuxClick = "onauxclick" in canvas;
                 canvas.addEventListener("click", (event) => {
-                    if (state != "normal") {
-                        // Starting new game
-                        grid = new Grid(9, 7, 20, 10);
-                        state = "normal";
-                        drawCanvas();
+                    if (!hasAuxClick && event.ctrlKey) {
+                        // Safari on Mac, has already processed this in context menu event
                         return;
                     }
 
-                    mouseCell = grid.cellAt(event.offsetX, event.offsetY);
-                    if (!mouseCell || mouseCell.isOpen || event.button > 1) {
-                        return;
-                    }
+                    console.log("click");
                     if (state != "normal") {
                         // Starting new game
                         restart();
@@ -342,24 +365,15 @@
                         return;
                     }
 
-                    grid.findMinesIfNecessary(mouseCell);
-                    if (event.button == 1 || event.shiftKey) {
-                        mouseCell.isMarked = !mouseCell.isMarked;
+                    let mouseCell = grid.cellAt(event.offsetX, event.offsetY);
+                    if (!mouseCell || mouseCell.isOpen ) {
+                        return;
+                    }
 
-                        // Check if all the mines are marked
-                        var unmarkedMines = false;
-                        for (var y = 0; y < grid.height; y++) {
-                            var row = grid.rows[y];
-                            for (var x = 0; x < row.length; x++) {
-                                var cell = row[x];
-                                if (cell.isMine && !cell.isMarked) {
-                                    unmarkedMines = true;
-                                }
-                            }
-                        }
-                        if (!unmarkedMines) {
-                            winGame();
-                        }
+                    grid.findMinesIfNecessary(mouseCell);
+                            console.log("btn", event.button);
+                    if (event.shiftKey || event.ctrlKey) {
+                        toggleCellMarked(mouseCell);
                     } else if (!mouseCell.isMarked) {
                         mouseCell.isOpen = true;
                         if (mouseCell.isMine) {
@@ -390,9 +404,41 @@
 
                     drawCanvas();
                 });
+                canvas.addEventListener("contextmenu", (event) => {
+                    event.preventDefault();
 
-                canvas.width = grid.pixelWidth();
-                canvas.height = grid.pixelHeight();
+                    if (!hasAuxClick) {
+                        // Workaround for Safari
+                        let mouseCell = grid.cellAt(event.offsetX, event.offsetY);
+                        if (!mouseCell || mouseCell.isOpen) {
+                            return;
+                        }
+                        
+                        grid.findMinesIfNecessary(mouseCell);
+                        toggleCellMarked(mouseCell);
+                    }
+                });
+                if (hasAuxClick) {
+                    canvas.addEventListener("auxclick", (event) => {
+                        console.log("auxclick");
+                        if (state != "normal") {
+                            // Starting new game
+                            restart();
+                            drawCanvas();
+                            return;
+                        }
+
+                        let mouseCell = grid.cellAt(event.offsetX, event.offsetY);
+                        if (!mouseCell || mouseCell.isOpen) {
+                            return;
+                        }
+                        toggleCellMarked(mouseCell);
+                    });
+                }
+                console.log("auxclick?", "onauxclick" in canvas);
+
+                canvas.width = grid.pixelWidth() + 10;
+                canvas.height = grid.pixelHeight() + 10;
 
                 drawCanvas();
             }
@@ -402,7 +448,7 @@
     </head>
     <body>
         <canvas id="canvas"></canvas>
-        <p>Hold shift to mark. On mobile, wait until I've implemented something for that.</p>
         <p>When won or lost, click to start new game.</p>
+        <p><a href="https://github.com/cochrane/hexsweeper">Github</a></p>
     </body>
 </html>
