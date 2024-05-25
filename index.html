@@ -60,6 +60,7 @@
                     this.cellRadius = cellRadius; // Radius of circle through the tips of the hexagon (also edge length)
                     this.cellDiagonalY = cellRadius * 0.5; // abs y component of line from center to corner except directly above/below
                     this.cellDiagonalX = Math.sqrt(this.cellRadius*this.cellRadius - this.cellDiagonalY*this.cellDiagonalY); // same for x
+                    this.padding = 5; 
                 }
 
                 findMinesIfNecessary(clickedCell) {
@@ -148,8 +149,8 @@
                 }
 
                 cellMidpoint(x, y) {
-                    var midpointX = (x + grid.xOffset(y)) * this.cellDiagonalX * 2 + this.cellDiagonalX;
-                    var midpointY = (y * (this.cellRadius*2 - this.cellDiagonalY)) + this.cellRadius;
+                    var midpointX = (x + grid.xOffset(y)) * this.cellDiagonalX * 2 + this.cellDiagonalX + this.padding;
+                    var midpointY = (y * (this.cellRadius*2 - this.cellDiagonalY)) + this.cellRadius + this.padding;
                     return new Point(midpointX, midpointY);
                 }
 
@@ -184,16 +185,17 @@
                 }
 
                 pixelHeight() {
-                    return this.height * (this.cellRadius*2) - (this.height - 1) * this.cellDiagonalY;
+                    return this.height * (this.cellRadius*2) - (this.height - 1) * this.cellDiagonalY + this.padding * 2;
                 }
 
                 pixelWidth() {
-                    return this.width * this.cellDiagonalX * 2;
+                    return this.width * this.cellDiagonalX * 2 + this.padding * 2;
                 }
             }
 
             var grid = null;
             var state = null;
+            var mouseMode = "mine";
             
             function restart() {
                 grid = new Grid(9, 7, 20, 10);
@@ -357,7 +359,6 @@
                         return;
                     }
 
-                    console.log("click");
                     if (state != "normal") {
                         // Starting new game
                         restart();
@@ -371,8 +372,7 @@
                     }
 
                     grid.findMinesIfNecessary(mouseCell);
-                            console.log("btn", event.button);
-                    if (event.shiftKey || event.ctrlKey) {
+                    if (event.shiftKey || event.ctrlKey || mouseMode == "flag") {
                         toggleCellMarked(mouseCell);
                     } else if (!mouseCell.isMarked) {
                         mouseCell.isOpen = true;
@@ -435,10 +435,21 @@
                         toggleCellMarked(mouseCell);
                     });
                 }
-                console.log("auxclick?", "onauxclick" in canvas);
+                let radioMine = document.getElementById("radioMine");
+                radioMine.onchange = (event) => {
+                  if (radioMine.checked) {
+                     mouseMode = "mine";
+                  }
+                }
+                let radioFlag = document.getElementById("radioFlag");
+                radioFlag.onchange = (event) => {
+                  if (radioFlag.checked) {
+                     mouseMode = "flag";
+                  }
+                }
 
-                canvas.width = grid.pixelWidth() + 10;
-                canvas.height = grid.pixelHeight() + 10;
+                canvas.width = grid.pixelWidth();
+                canvas.height = grid.pixelHeight();
 
                 drawCanvas();
             }
@@ -448,7 +459,12 @@
     </head>
     <body>
         <canvas id="canvas"></canvas>
-        <p>When won or lost, click to start new game.</p>
+        <form>
+            Tap: <input id="radioMine" type="radio" name="mode" value="mine" checked>
+            <label for="radioMine">Open</label>
+            <input id="radioFlag" type="radio" name="mode" value="flag">
+            <label for="radioFlag">Flag</label>
+        </form>
         <p><a href="https://github.com/cochrane/hexsweeper">Github</a></p>
     </body>
 </html>
