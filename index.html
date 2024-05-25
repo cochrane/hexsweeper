@@ -205,7 +205,6 @@
 
             function drawCanvas() {
                 let ctx = document.getElementById("canvas").getContext("2d");
-                ctx.fillStyle = "#ABC";
                 for (let y = 0; y < grid.height; y++) {
                     for (let x = 0; x < grid.rows[y].length; x++) {
                         let cell = grid.rows[y][x];
@@ -229,6 +228,8 @@
                         }
                         ctx.closePath();
                         ctx.fill();
+                        ctx.strokeStyle = "#000";
+                        ctx.lineWidth = 1;
                         ctx.stroke();
 
                         const midpoint = grid.cellMidpoint(x, y);
@@ -248,8 +249,6 @@
                             }
                             ctx.closePath();
                             ctx.stroke();
-                            ctx.lineWidth = 1;
-
                         }
                         if (cell.isMarked || (state == "won" && cell.isMine)) {
                             ctx.fillStyle = "#550";
@@ -261,6 +260,17 @@
                             ctx.lineTo(midpoint.x - 5, midpoint.y);
                             ctx.closePath();
                             ctx.fill();
+                        }
+                        if (cell.isMarked && !cell.isMine && state == "lost") {
+                            ctx.strokeStyle = "#F33";
+                            ctx.beginPath();
+                            ctx.lineWidth = 2.5;
+                            ctx.moveTo(midpoint.x - 6, midpoint.y - 6);
+                            ctx.lineTo(midpoint.x + 6, midpoint.y + 6);
+                            ctx.moveTo(midpoint.x - 6, midpoint.y + 6);
+                            ctx.lineTo(midpoint.x + 6, midpoint.y - 6);
+                            ctx.closePath();
+                            ctx.stroke();
                         }
 
                         ctx.fillStyle = "#FF0";
@@ -334,17 +344,19 @@
                 mouseCell.isMarked = !mouseCell.isMarked;
 
                 // Check if all the mines are marked
-                var unmarkedMines = false;
+                var incorrectlyMarkedMines = false;
                 for (var y = 0; y < grid.height; y++) {
                     var row = grid.rows[y];
                     for (var x = 0; x < row.length; x++) {
                         var cell = row[x];
                         if (cell.isMine && !cell.isMarked) {
-                            unmarkedMines = true;
+                            incorrectlyMarkedMines = true;
+                        } else if (cell.isMarked && !cell.isMine) {
+                            incorrectlyMarkedMines = true;
                         }
                     }
                 }
-                if (!unmarkedMines) {
+                if (!incorrectlyMarkedMines) {
                     winGame();
                 }
                 drawCanvas();
@@ -392,6 +404,9 @@
                                 for (var x = 0; x < row.length; x++) {
                                     var cell = row[x];
                                     if (!cell.isMine && !cell.isOpen && !cell.isMarked) {
+                                        fieldsToOpen = true;
+                                    }
+                                    if (cell.isMarked && !cell.isMine) {
                                         fieldsToOpen = true;
                                     }
                                 }
