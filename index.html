@@ -193,15 +193,16 @@
                 transform.setTranslate(midpoint.x, midpoint.y);
                 cellChild.transform.baseVal.initialize(transform);
 
-                let mouseCell = cell;
+                let cellX = cell.x;
+                let cellY = cell.y;
                 cellChild.onclick = (event) => {
                     if (state != "normal") {
                         // Starting new game
                         restart();
-                        drawCanvas();
                         return;
                     }
 
+                    let mouseCell = grid.rows[cellY][cellX];
                     grid.findMinesIfNecessary(mouseCell);
                     if (event.shiftKey || event.ctrlKey || mouseMode == "flag") {
                         toggleCellMarked(mouseCell);
@@ -248,10 +249,10 @@
                         if (state != "normal") {
                             // Starting new game
                             restart();
-                            drawCanvas();
                             return;
                         }
                         
+                        let mouseCell = grid.rows[cellY][cellX];
                         if (mouseCell.isOpen) {
                             return;
                         }
@@ -265,10 +266,10 @@
                         if (state != "normal") {
                             // Starting new game
                             restart();
-                            drawCanvas();
                             return;
                         }
 
+                        let mouseCell = grid.rows[cellY][cellX];
                         if (mouseCell.isOpen) {
                             return;
                         }
