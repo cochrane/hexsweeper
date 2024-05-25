@@ -177,7 +177,7 @@
             var mouseMode = "mine";
             
             function restart() {
-                grid = new Grid(29, 27, 20, 99);
+                grid = new Grid(9, 7, 20, 10);
                 state = "normal";
                 updateGrid();
             }
@@ -202,7 +202,7 @@
                         return;
                     }
 
-                    let mouseCell = grid.rows[cellY][cellX];
+                    var mouseCell = grid.rows[cellY][cellX];
                     grid.findMinesIfNecessary(mouseCell);
                     if (event.shiftKey || event.ctrlKey || mouseMode == "flag") {
                         toggleCellMarked(mouseCell);
@@ -252,7 +252,7 @@
                             return;
                         }
                         
-                        let mouseCell = grid.rows[cellY][cellX];
+                        var mouseCell = grid.rows[cellY][cellX];
                         if (mouseCell.isOpen) {
                             return;
                         }
@@ -269,7 +269,7 @@
                             return;
                         }
 
-                        let mouseCell = grid.rows[cellY][cellX];
+                        var mouseCell = grid.rows[cellY][cellX];
                         if (mouseCell.isOpen) {
                             return;
                         }
