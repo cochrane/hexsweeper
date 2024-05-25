@@ -154,42 +154,21 @@
                     return new Point(midpointX, midpointY);
                 }
 
-                cellCorners(x, y) {
-                    var midpoint = this.cellMidpoint(x, y);
-                    return [
-                        new Point(midpoint.x - this.cellDiagonalX, midpoint.y - this.cellDiagonalY),
-                        new Point(midpoint.x, midpoint.y - this.cellRadius),
-                        new Point(midpoint.x + this.cellDiagonalX, midpoint.y - this.cellDiagonalY),
-                        new Point(midpoint.x + this.cellDiagonalX, midpoint.y + this.cellDiagonalY),
-                        new Point(midpoint.x, midpoint.y + this.cellRadius),
-                        new Point(midpoint.x - this.cellDiagonalX, midpoint.y + this.cellDiagonalY),
-                    ];
-                }
-
-                cellAt(mouseX, mouseY) {
-                    // I'm tired, let's do this simple
-                    // Will allow a bit of extra click distance just outside the edge
-                    var closestDistance = 1e9;
-                    var closestCell = null;
-                    for (var y = 0; y < this.height; y++) {
-                        for (var x = 0; x < this.rows[y].length; x++) {
-                            var midpoint = this.cellMidpoint(x, y);
-                            var distance = Math.sqrt((midpoint.x - mouseX)*(midpoint.x - mouseX) + (midpoint.y - mouseY)*(midpoint.y - mouseY));
-                            if (distance <= this.cellRadius && distance < closestDistance) {
-                                closestCell = this.rows[y][x];
-                                closestDistance = distance;
-                            }
-                        }
-                    }
-                    return closestCell;
-                }
-
                 pixelHeight() {
                     return this.height * (this.cellRadius*2) - (this.height - 1) * this.cellDiagonalY + this.padding * 2;
                 }
 
                 pixelWidth() {
                     return this.width * this.cellDiagonalX * 2 + this.padding * 2;
+                }
+
+                forEachCell(functor) {
+                    for (let y = 0; y < this.rows.length; y++) {
+                        let row = this.rows[y];
+                        for (let x = 0; x < row.length; x++) {
+                            functor(row[x]);
+                        }
+                    }
                 }
             }
 
@@ -200,105 +179,158 @@
             function restart() {
                 grid = new Grid(9, 7, 20, 10);
                 state = "normal";
+                updateGrid();
             }
-            restart();
 
-            function drawCanvas() {
-                let ctx = document.getElementById("canvas").getContext("2d");
-                ctx.reset();
-                for (let y = 0; y < grid.height; y++) {
-                    for (let x = 0; x < grid.rows[y].length; x++) {
-                        let cell = grid.rows[y][x];
-                        if (cell.isOpen) {
-                            ctx.fillStyle = "#CCC";
+            function createSvgCell(cell) {
+                let cellChild = document.createElementNS("http://www.w3.org/2000/svg", "g");
+                cellChild.id = "cell" + cell.x + "-" + cell.y;
+                let field = document.getElementById("field");
+                field.appendChild(cellChild);
+
+                let midpoint = grid.cellMidpoint(cell.x, cell.y);
+                let transform = document.getElementsByTagName("svg")[0].createSVGTransform();
+                transform.setTranslate(midpoint.x, midpoint.y);
+                cellChild.transform.baseVal.initialize(transform);
+
+                let mouseCell = cell;
+                cellChild.onclick = (event) => {
+                    if (state != "normal") {
+                        // Starting new game
+                        restart();
+                        drawCanvas();
+                        return;
+                    }
+
+                    grid.findMinesIfNecessary(mouseCell);
+                    if (event.shiftKey || event.ctrlKey || mouseMode == "flag") {
+                        toggleCellMarked(mouseCell);
+                    } else if (!mouseCell.isMarked) {
+                        mouseCell.isOpen = true;
+                        if (mouseCell.isMine) {
+                            console.log("Lost");
+                            state = "lost";
+                            mouseCell.exploded = true;
+                            updateGrid();
+                            // Boom. Lost
                         } else {
-                            ctx.fillStyle = "#999"
-                        }
-                        if (cell.debugHighlighted) {
-                            ctx.fillStyle = "#A0A";
-                            cell.debugHighlighted = false;
-                        }
-                        if (cell.exploded) {
-                            ctx.fillStyle = "#F33";
-                        }
-                        let points = grid.cellCorners(x, y);
-                        ctx.beginPath();
-                        ctx.moveTo(points[0].x, points[0].y);
-                        for (let i = 1; i < points.length; i++) {
-                            ctx.lineTo(points[i].x, points[i].y);
-                        }
-                        ctx.closePath();
-                        ctx.fill();
-                        ctx.strokeStyle = "#000";
-                        ctx.lineWidth = 1;
-                        ctx.stroke();
+                            // Flood fill if necessary
+                            openEmptyCell(mouseCell);
 
-                        const midpoint = grid.cellMidpoint(x, y);
-                        if (cell.isMine && (cell.isOpen || state == "lost")) {
-                            ctx.fillStyle = "#000";
-                            ctx.beginPath();
-                            ctx.ellipse(midpoint.x, midpoint.y, 7, 7, 0, 0, Math.PI * 2);
-                            ctx.closePath();
-                            ctx.fill();
-                            ctx.beginPath();
-                            ctx.lineWidth = 1.5;
-                            for (let i = 0; i < 4; i++) {
-                                const angle = i * Math.PI / 4;
-
-                                ctx.moveTo(midpoint.x - Math.sin(angle) * 10, midpoint.y + Math.cos(angle) * 10);
-                                ctx.lineTo(midpoint.x + Math.sin(angle) * 10, midpoint.y - Math.cos(angle) * 10);
+                            // Check if all open fields are open
+                            let fieldsToOpen = false;
+                            for (let y = 0; y < grid.height; y++) {
+                                let row = grid.rows[y];
+                                for (let x = 0; x < row.length; x++) {
+                                    let cell = row[x];
+                                    if (!cell.isMine && !cell.isOpen && !cell.isMarked) {
+                                        fieldsToOpen = true;
+                                    }
+                                    if (cell.isMarked && !cell.isMine) {
+                                        fieldsToOpen = true;
+                                    }
+                                }
                             }
-                            ctx.closePath();
-                            ctx.stroke();
-                        }
-                        if (cell.isMarked || (state == "won" && cell.isMine)) {
-                            ctx.fillStyle = "#550";
-                            ctx.fillRect(midpoint.x - 5, midpoint.y - 10, 2, 20);
-                            ctx.fillStyle = "#A00";
-                            ctx.beginPath();
-                            ctx.moveTo(midpoint.x - 5, midpoint.y - 10);
-                            ctx.lineTo(midpoint.x + 5, midpoint.y - 5);
-                            ctx.lineTo(midpoint.x - 5, midpoint.y);
-                            ctx.closePath();
-                            ctx.fill();
-                        }
-                        if (cell.isMarked && !cell.isMine && state == "lost") {
-                            ctx.strokeStyle = "#F33";
-                            ctx.beginPath();
-                            ctx.lineWidth = 2.5;
-                            ctx.moveTo(midpoint.x - 6, midpoint.y - 6);
-                            ctx.lineTo(midpoint.x + 6, midpoint.y + 6);
-                            ctx.moveTo(midpoint.x - 6, midpoint.y + 6);
-                            ctx.lineTo(midpoint.x + 6, midpoint.y - 6);
-                            ctx.closePath();
-                            ctx.stroke();
-                        }
-
-                        ctx.fillStyle = "#FF0";
-                        //ctx.fillText(x + "," + y, midpoint.x - 10, midpoint.y);
-                        if (cell.mineNeighbors > 0 && !cell.isMine && cell.isOpen) {
-                            if (cell.mineNeighbors == 1) {
-                                ctx.fillStyle = "#00F";
-                            } else if (cell.mineNeighbors == 2) {
-                                ctx.fillStyle = "#1B1";
-                            } else if (cell.mineNeighbors == 3) {
-                                ctx.fillStyle = "#B44";
-                            } else if (cell.mineNeighbors == 4) {
-                                ctx.fillStyle = "#007";
-                            } else if (cell.mineNeighbors == 5) {
-                                ctx.fillStyle = "#700";
-                            } else if (cell.mineNeighbors == 6) {
-                                ctx.fillStyle = "#070";
-                            } else {
-                                ctx.fillStyle = "#ABC"; // ?
+                            if (!fieldsToOpen) {
+                                winGame();
                             }
-                            ctx.textAlign = "center";
-                            ctx.textBaseline = "middle";
-                            ctx.font = "1.5em bold serif";
-                            ctx.fillText(cell.mineNeighbors, midpoint.x, midpoint.y);
                         }
                     }
+                };
+
+                const hasAuxClick = "onauxclick" in cellChild;
+
+                cellChild.oncontextmenu = (event) => {
+                    event.preventDefault();
+
+                    if (!hasAuxClick) {
+                        // Workaround for Safari
+                        if (state != "normal") {
+                            // Starting new game
+                            restart();
+                            drawCanvas();
+                            return;
+                        }
+                        
+                        if (mouseCell.isOpen) {
+                            return;
+                        }
+                        
+                        grid.findMinesIfNecessary(mouseCell);
+                        toggleCellMarked(mouseCell);
+                    }
+                };
+                if (hasAuxClick) {
+                    cellChild.onauxclick = (event) => {
+                        if (state != "normal") {
+                            // Starting new game
+                            restart();
+                            drawCanvas();
+                            return;
+                        }
+
+                        if (mouseCell.isOpen) {
+                            return;
+                        }
+                        toggleCellMarked(mouseCell);
+                    };
                 }
+
+                return cellChild;
+            }
+
+            function getSvgCell(cell) {
+                let id = "cell" + cell.x + "-" + cell.y;
+                let cellChild = field.getElementById(id);
+                if (cellChild == null) {
+                    return createSvgCell(cell);
+                }
+                return cellChild;
+            }
+
+            function updateSvgCell(cell) {
+                let element = getSvgCell(cell);
+                element.replaceChildren([]);
+
+                if (cell.exploded) {
+                    element.appendChild(createUseElement("#svgCellExploded"));
+                    element.appendChild(createUseElement("#svgMineRef"));
+                } else if (cell.isOpen) {
+                    element.appendChild(createUseElement("#svgCellOpen"));
+                    if (cell.isMine && state == "won") {
+                        element.appendChild(createUseElement("#svgMineRef"));
+                        element.appendChild(createUseElement("#svgFlagRef"));
+                    } else if (cell.mineNeighbors > 0) {
+                        let textElement = document.createElementNS("http://www.w3.org/2000/svg", "text");
+                        textElement.setAttribute("class", "mineCount svg" + cell.mineNeighbors);
+                        textElement.appendChild(document.createTextNode(cell.mineNeighbors));
+                        element.appendChild(textElement);
+                    }
+                } else {
+                    element.appendChild(createUseElement("#svgCellClosed"));
+                    if (cell.isMarked) {
+                        element.appendChild(createUseElement("#svgFlagRef"));
+                        if (state == "lost" && !cell.isMine) {
+                            element.appendChild(createUseElement("#svgCrossRef"));
+                        }
+                    } else if (state == "lost" && cell.isMine) {
+                        element.appendChild(createUseElement("#svgMineRef"));
+                    }
+                }
+            }
+
+            function createUseElement(href) {
+                let useElement = document.createElementNS("http://www.w3.org/2000/svg", "use");
+                useElement.setAttributeNS("http://www.w3.org/1999/xlink", "href", href);
+                return useElement;
+            }
+
+            function setLengthValue(element, attributeName, value) {
+                element[attributeName].baseVal.value = length;
+            }
+
+            function updateGrid() {
+                grid.forEachCell((cell) => { updateSvgCell(cell); });
             }
 
             function openEmptyCell(mouseCell) {
@@ -322,6 +354,7 @@
                             }
                         }
                     }
+                    updateSvgCell(cell);
                 }
             }
 
@@ -339,10 +372,12 @@
                         }
                     }
                 }
+                updateGrid();
             }
 
             function toggleCellMarked(mouseCell) {
                 mouseCell.isMarked = !mouseCell.isMarked;
+                updateSvgCell(mouseCell);
 
                 // Check if all the mines are marked
                 var incorrectlyMarkedMines = false;
@@ -360,97 +395,11 @@
                 if (!incorrectlyMarkedMines) {
                     winGame();
                 }
-                drawCanvas();
             }
 
             function loaded(e) {
-                canvas = document.getElementById("canvas");
-                const hasAuxClick = "onauxclick" in canvas;
-                canvas.addEventListener("click", (event) => {
-                    if (!hasAuxClick && event.ctrlKey) {
-                        // Safari on Mac, has already processed this in context menu event
-                        return;
-                    }
+                restart();
 
-                    if (state != "normal") {
-                        // Starting new game
-                        restart();
-                        drawCanvas();
-                        return;
-                    }
-
-                    let mouseCell = grid.cellAt(event.offsetX, event.offsetY);
-                    if (!mouseCell || mouseCell.isOpen ) {
-                        return;
-                    }
-
-                    grid.findMinesIfNecessary(mouseCell);
-                    if (event.shiftKey || event.ctrlKey || mouseMode == "flag") {
-                        toggleCellMarked(mouseCell);
-                    } else if (!mouseCell.isMarked) {
-                        mouseCell.isOpen = true;
-                        if (mouseCell.isMine) {
-                            console.log("Lost");
-                            state = "lost";
-                            mouseCell.exploded = true;
-                            // Boom. Lost
-                        } else {
-                            // Flood fill if necessary
-                            openEmptyCell(mouseCell);
-
-                            // Check if all open fields are open
-                            var fieldsToOpen = false;
-                            for (var y = 0; y < grid.height; y++) {
-                                var row = grid.rows[y];
-                                for (var x = 0; x < row.length; x++) {
-                                    var cell = row[x];
-                                    if (!cell.isMine && !cell.isOpen && !cell.isMarked) {
-                                        fieldsToOpen = true;
-                                    }
-                                    if (cell.isMarked && !cell.isMine) {
-                                        fieldsToOpen = true;
-                                    }
-                                }
-                            }
-                            if (!fieldsToOpen) {
-                                winGame();
-                            }
-                        }
-                    }
-
-                    drawCanvas();
-                });
-                canvas.addEventListener("contextmenu", (event) => {
-                    event.preventDefault();
-
-                    if (!hasAuxClick) {
-                        // Workaround for Safari
-                        let mouseCell = grid.cellAt(event.offsetX, event.offsetY);
-                        if (!mouseCell || mouseCell.isOpen) {
-                            return;
-                        }
-                        
-                        grid.findMinesIfNecessary(mouseCell);
-                        toggleCellMarked(mouseCell);
-                    }
-                });
-                if (hasAuxClick) {
-                    canvas.addEventListener("auxclick", (event) => {
-                        console.log("auxclick");
-                        if (state != "normal") {
-                            // Starting new game
-                            restart();
-                            drawCanvas();
-                            return;
-                        }
-
-                        let mouseCell = grid.cellAt(event.offsetX, event.offsetY);
-                        if (!mouseCell || mouseCell.isOpen) {
-                            return;
-                        }
-                        toggleCellMarked(mouseCell);
-                    });
-                }
                 let radioMine = document.getElementById("radioMine");
                 radioMine.onchange = (event) => {
                   if (radioMine.checked) {
@@ -464,17 +413,70 @@
                   }
                 }
 
-                canvas.width = grid.pixelWidth();
-                canvas.height = grid.pixelHeight();
-
-                drawCanvas();
+                let field = document.getElementById("field");
+                field.style.width = grid.pixelWidth();
+                field.style.height = grid.pixelHeight();
             }
 
             window.onload = loaded
         </script>
     </head>
     <body>
-        <canvas id="canvas"></canvas>
+        <svg id="field" version="1.1">
+            <style>
+            .svg1 {
+                fill: #00F;
+            }
+            .svg2 {
+                fill: #191;
+            }
+            .svg3 {
+                fill: #B44;
+            }
+            .svg4 {
+                fill: #007;
+            }
+            .svg5 {
+                fill: #700;
+            }
+            .svg6 {
+                fill: #070;
+            }
+            .mineCount {
+                alignment-baseline: central;
+                text-anchor: middle;
+                font-size: 1.5em;
+                font-weight: semibold;
+                font-family: sans-serif;
+            }
+            </style>
+            <defs>
+                <g id="svgMineRef">
+                    <circle cx="0" cy="0" r="7" fill="black" />
+                    <line x1="0" y1="10" x2="0" y2="-10" stroke="black" stroke-width="2" transform="rotate(0)" />
+                    <line x1="0" y1="10" x2="0" y2="-10" stroke="black" stroke-width="2" transform="rotate(45)" />
+                    <line x1="0" y1="10" x2="0" y2="-10" stroke="black" stroke-width="2" transform="rotate(90)" />
+                    <line x1="0" y1="10" x2="0" y2="-10" stroke="black" stroke-width="2" transform="rotate(135)" />
+                </g>
+                <g id="svgFlagRef">
+                    <rect fill="rgb(85, 85, 0)" x="-5" y="-10" width="2" height="20" />
+                    <polygon fill="rgb(170, 0, 0)" points="-5,-10 5,-5, -5,0" />
+                </g>
+                <g id="svgCrossRef">
+                    <line stroke="rgb(255, 51, 51)" stroke-width="3" x1="-6" y1="-6" x2="6" y2="6" />
+                    <line stroke="rgb(255, 51, 51)" stroke-width="3" x1="-6" y1="6" x2="6" y2="-6" />
+                </g>
+                <g id="svgCellOpen">
+                    <polygon fill="rgb(204, 204, 204)" stroke="black" stroke-width="1" points="-17.3205080757,-10 0,-20 17.3205080757,-10 17.3205080757,10 0,20 -17.3205080757,10" />
+                </g>
+                <g id="svgCellClosed">
+                    <polygon fill="rgb(153, 153, 153)" stroke="black" stroke-width="1" points="-17.3205080757,-10 0,-20 17.3205080757,-10 17.3205080757,10 0,20 -17.3205080757,10" />
+                </g>
+                <g id="svgCellExploded">
+                    <polygon fill="rgb(255, 51, 51)" stroke="black" stroke-width="1" points="-17.3205080757,-10 0,-20 17.3205080757,-10 17.3205080757,10 0,20 -17.3205080757,10" />
+                </g>
+            </defs>
+        </svg>
         <form>
             Tap: <input id="radioMine" type="radio" name="mode" value="mine" checked>
             <label for="radioMine">Open</label>
