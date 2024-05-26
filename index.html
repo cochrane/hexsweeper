@@ -13,25 +13,20 @@
                 left: 0;
                 right: 0;
                 bottom: 0;
+                display: grid;
+                grid-template-columns: 100%;
+                grid-template-rows: 51px auto;
             }
 
             #toolbar {
                 background-color: #CCC;
                 padding: 10px;
-                position: absolute;
-                top: 0;
-                left: 0;
-                right: 0;
                 height: 30px;
                 border-bottom: 1px solid black;
+                width: 100%;
             }
 
             #fieldArea {
-                position: absolute;
-                top: 51px;
-                left: 0;
-                right: 0;
-                bottom: 0;
                 overflow: scroll;
                 display: flex;
                 align-items: center;
@@ -41,6 +36,10 @@
             #toolbar label svg {
                 display: inline-block;
                 vertical-align: middle;
+            }
+
+            #refcontainer {
+                display: none;
             }
         </style>
         <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -458,7 +457,9 @@
 
             window.onload = loaded
         </script>
-        <svg>
+    </head>
+    <body>
+        <svg id="refcontainer">
             <style>
             .svg1 {
                 fill: #00F;
@@ -514,8 +515,7 @@
                 </g>
             </defs>
         </svg>
-    </head>
-    <body>
+
         <div id="toolbar">
             <form>
                 Tap: <input id="radioMine" type="radio" name="mode" value="mine" checked>
