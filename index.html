@@ -6,6 +6,38 @@
         <style>
             body {
                 text-align: center;
+                margin: 0;
+                padding: 0;
+                position: absolute;
+                top: 0;
+                left: 0;
+                right: 0;
+                bottom: 0;
+            }
+
+            #toolbar {
+                background-color: #CCC;
+                padding: 10px;
+                position: absolute;
+                top: 0;
+                left: 0;
+                right: 0;
+                height: 30px;
+                border-bottom: 1px solid black;
+            }
+
+            #fieldArea {
+                position: absolute;
+                top: 51px;
+                left: 0;
+                right: 0;
+                bottom: 0;
+                overflow: scroll;
+            }
+
+            #toolbar label svg {
+                display: inline-block;
+                vertical-align: middle;
             }
         </style>
         <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -177,7 +209,7 @@
             var mouseMode = "mine";
             
             function restart() {
-                grid = new Grid(9, 7, 20, 10);
+                grid = new Grid(19, 17, 20, 40);
                 state = "normal";
                 updateGrid();
             }
@@ -423,9 +455,7 @@
 
             window.onload = loaded
         </script>
-    </head>
-    <body>
-        <svg id="field" version="1.1">
+        <svg>
             <style>
             .svg1 {
                 fill: #00F;
@@ -481,12 +511,29 @@
                 </g>
             </defs>
         </svg>
-        <form>
-            Tap: <input id="radioMine" type="radio" name="mode" value="mine" checked>
-            <label for="radioMine">Open</label>
-            <input id="radioFlag" type="radio" name="mode" value="flag">
-            <label for="radioFlag">Flag</label>
-        </form>
-        <p><a href="https://github.com/cochrane/hexsweeper">Github</a></p>
+    </head>
+    <body>
+        <div id="toolbar">
+            <form>
+                Tap: <input id="radioMine" type="radio" name="mode" value="mine" checked>
+                <label for="radioMine">
+                    <svg width="30" height="30">
+                        <title>Open cells</title>
+                        <use href="#svgMineRef" x="15" y="15" />
+                    </svg>
+                </label>
+                <input id="radioFlag" type="radio" name="mode" value="flag">
+                <label for="radioFlag">
+                    <svg width="30" height="30">
+                        <title>Flag cells</title>
+                        <use href="#svgFlagRef" x="15" y="15" />
+                    </svg>
+                </label>
+            </form>
+        </div>
+        <div id="fieldArea">
+            <svg id="field" version="1.1"></svg>
+            <p><a href="https://github.com/cochrane/hexsweeper">Github</a></p>
+        </div>
     </body>
 </html>
