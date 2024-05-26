@@ -1,0 +1,17 @@
+<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" width="180" height="180" viewBox="0 0 180 180">
+    <g transform="translate(90 90) scale(3.8)">
+        <g id="svgCellOpen">
+            <polygon fill="rgb(204, 204, 204)" stroke="black" stroke-width="1" points="-17.3205080757,-10 0,-20 17.3205080757,-10 17.3205080757,10 0,20 -17.3205080757,10" />
+        </g>
+        <g id="svgFlagRef" transform="scale(1.2)">
+            <rect fill="rgb(85, 85, 0)" x="-5" y="-10" width="2" height="20" />
+            <polygon fill="rgb(170, 0, 0)" points="-5,-10 5,-5, -5,0" />
+        </g>
+        <use href="#svgCellOpen" y="30" x="-17.3205080757" />
+        <use href="#svgCellOpen" y="-30" x="-17.3205080757" />
+        <use href="#svgCellOpen" y="30" x="17.3205080757" />
+        <use href="#svgCellOpen" y="-30" x="17.3205080757" />
+        <use href="#svgCellOpen" y="0" x="3.46410161514E1" />
+        <use href="#svgCellOpen" y="0" x="-3.46410161514E1" />
+    </g>
+</svg>
