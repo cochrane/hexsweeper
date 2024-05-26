@@ -217,7 +217,7 @@
             function createSvgCell(cell) {
                 let cellChild = document.createElementNS("http://www.w3.org/2000/svg", "g");
                 cellChild.id = "cell" + cell.x + "-" + cell.y;
-                let field = document.getElementById("field");
+                let field = document.getElementById("main");
                 field.appendChild(cellChild);
 
                 let midpoint = grid.cellMidpoint(cell.x, cell.y);
@@ -446,11 +446,12 @@
                   }
                 }
 
+                let isCoarse = window.matchMedia("(pointer: coarse)").matches;
+                let scaleFactor = isCoarse ? 1.5 : 1;
+                
                 let field = document.getElementById("field");
-                field.style.width = grid.pixelWidth();
-                field.style.height = grid.pixelHeight();
-                field.setAttribute("width", grid.pixelWidth());
-                field.setAttribute("height", grid.pixelHeight());
+                field.setAttribute("width", grid.pixelWidth() * scaleFactor);
+                field.setAttribute("height", grid.pixelHeight() * scaleFactor);
             }
 
             window.onload = loaded
@@ -484,6 +485,12 @@
                 font-size: 1.5em;
                 font-weight: semibold;
                 font-family: sans-serif;
+            }
+                
+            @media (pointer: coarse) {
+                #main {
+                    scale: 150%;
+                }
             }
             </style>
             <defs>
@@ -534,7 +541,7 @@
         </div>
         <div id="fieldArea">
             <div id="fieldAreaInterior">
-                <svg id="field" version="1.1"></svg>
+                <svg id="field" version="1.1"><g id="main"></g></svg>
                 <p><a href="https://github.com/cochrane/hexsweeper">Github</a></p>
             </div>
         </div>
