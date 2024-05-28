@@ -218,19 +218,17 @@
                 updateGrid();
             }
 
-            function createSvgCell(cell) {
+            function createSvgCell(cellX, cellY) {
                 let cellChild = document.createElementNS("http://www.w3.org/2000/svg", "g");
-                cellChild.id = "cell" + cell.x + "-" + cell.y;
+                cellChild.id = "cell" + cellX + "-" + cellY;
                 let field = document.getElementById("main");
                 field.appendChild(cellChild);
 
-                let midpoint = grid.cellMidpoint(cell.x, cell.y);
+                let midpoint = grid.cellMidpoint(cellX, cellY);
                 let transform = document.getElementsByTagName("svg")[0].createSVGTransform();
                 transform.setTranslate(midpoint.x, midpoint.y);
                 cellChild.transform.baseVal.initialize(transform);
 
-                let cellX = cell.x;
-                let cellY = cell.y;
                 cellChild.onclick = (event) => {
                     if (state != "normal") {
                         // Starting new game
@@ -256,18 +254,14 @@
 
                             // Check if all open fields are open
                             let fieldsToOpen = false;
-                            for (let y = 0; y < grid.height; y++) {
-                                let row = grid.rows[y];
-                                for (let x = 0; x < row.length; x++) {
-                                    let cell = row[x];
-                                    if (!cell.isMine && !cell.isOpen && !cell.isMarked) {
-                                        fieldsToOpen = true;
-                                    }
-                                    if (cell.isMarked && !cell.isMine) {
-                                        fieldsToOpen = true;
-                                    }
+                            grid.forEachCell((cell) => {
+                                if (!cell.isMine && !cell.isOpen && !cell.isMarked) {
+                                    fieldsToOpen = true;
                                 }
-                            }
+                                if (cell.isMarked && !cell.isMine) {
+                                    fieldsToOpen = true;
+                                }
+                            });
                             if (!fieldsToOpen) {
                                 winGame();
                             }
@@ -316,17 +310,17 @@
                 return cellChild;
             }
 
-            function getSvgCell(cell) {
-                let id = "cell" + cell.x + "-" + cell.y;
+            function getSvgCell(cellX, cellY) {
+                let id = "cell" + cellX + "-" + cellY;
                 let cellChild = field.getElementById(id);
                 if (cellChild == null) {
-                    return createSvgCell(cell);
+                    return createSvgCell(cellX, cellY);
                 }
                 return cellChild;
             }
 
             function updateSvgCell(cell) {
-                let element = getSvgCell(cell);
+                let element = getSvgCell(cell.x, cell.y);
                 element.replaceChildren([]);
 
                 if (cell.exploded) {
@@ -398,17 +392,11 @@
             function winGame() {
                 state = "won";
                 console.log("Won");
-                for (var y = 0; y < grid.height; y++) {
-                    var row = grid.rows[y];
-                    for (var x = 0; x < row.length; x++) {
-                        var cell = row[x];
-                        if (cell.isMined) {
-                            cell.isMarked = true;
-                        } else if (!cell.isOpen) {
-                            openEmptyCell(cell);
-                        }
+                grid.forEachCell((cell) => {
+                    if (!cell.isOpen) {
+                        openEmptyCell(cell);
                     }
-                }
+                });
                 updateGrid();
             }
 
@@ -417,18 +405,14 @@
                 updateSvgCell(mouseCell);
 
                 // Check if all the mines are marked
-                var incorrectlyMarkedMines = false;
-                for (var y = 0; y < grid.height; y++) {
-                    var row = grid.rows[y];
-                    for (var x = 0; x < row.length; x++) {
-                        var cell = row[x];
-                        if (cell.isMine && !cell.isMarked) {
-                            incorrectlyMarkedMines = true;
-                        } else if (cell.isMarked && !cell.isMine) {
-                            incorrectlyMarkedMines = true;
-                        }
+                let incorrectlyMarkedMines = false;
+                grid.forEachCell((cell) => {
+                    if (cell.isMine && !cell.isMarked) {
+                        incorrectlyMarkedMines = true;
+                    } else if (cell.isMarked && !cell.isMine) {
+                        incorrectlyMarkedMines = true;
                     }
-                }
+                });
                 if (!incorrectlyMarkedMines) {
                     winGame();
                 }
