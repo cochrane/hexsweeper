@@ -18,26 +18,44 @@
                 right: 0;
                 bottom: 0;
                 display: grid;
-                grid-template-columns: 100%;
+                grid-template-columns: 7em auto 7em;
                 grid-template-rows: 51px auto;
             }
 
-            #toolbar {
+            .toolbar {
                 background-color: #CCC;
                 padding: 10px;
                 height: 30px;
                 border-bottom: 1px solid black;
-                width: 100%;
+                align-content: center;
             }
+
+            .toolbar label svg {
+                display: inline-block;
+                vertical-align: middle;
+            }
+
+            .toolbar #mines {
+                background-color: black;
+                padding: 0.5em;
+                color: #FE4;
+                font-family: monospace, sans-serif;
+                font-weight: bold;
+            }
+
+            .toolbar #time {
+                background-color: black;
+                padding: 0.5em;
+                color: #FE4;
+                font-family: monospace, sans-serif;
+                font-weight: bold;
+            }
+            
 
             #fieldArea {
                 overflow: scroll;
                 align-content: center;
-            }
-
-            #toolbar label svg {
-                display: inline-block;
-                vertical-align: middle;
+                grid-column: 1 / -1;
             }
 
             #refcontainer {
@@ -216,6 +234,18 @@
                 grid = new Grid(19, 17, 20, 40);
                 state = "normal";
                 updateGrid();
+                updateRemainingCellCount();
+                resetTimer();
+            }
+
+            function updateRemainingCellCount() {
+                let markedCount = 0;
+                grid.forEachCell((cell) => {
+                    if (cell.isMarked) {
+                        markedCount += 1;
+                    }
+                });
+                document.getElementById("mines").textContent = grid.minesCount - markedCount;
             }
 
             function createSvgCell(cellX, cellY) {
@@ -235,6 +265,7 @@
                         restart();
                         return;
                     }
+                    unpauseTimer();
 
                     var mouseCell = grid.rows[cellY][cellX];
                     grid.findMinesIfNecessary(mouseCell);
@@ -243,11 +274,11 @@
                     } else if (!mouseCell.isMarked) {
                         mouseCell.isOpen = true;
                         if (mouseCell.isMine) {
+                            pauseTimer();
                             console.log("Lost");
                             state = "lost";
                             mouseCell.exploded = true;
                             updateGrid();
-                            // Boom. Lost
                         } else {
                             // Flood fill if necessary
                             openEmptyCell(mouseCell);
@@ -281,6 +312,7 @@
                             restart();
                             return;
                         }
+                        unpauseTimer();
                         
                         var mouseCell = grid.rows[cellY][cellX];
                         if (mouseCell.isOpen) {
@@ -298,6 +330,7 @@
                             restart();
                             return;
                         }
+                        unpauseTimer();
 
                         var mouseCell = grid.rows[cellY][cellX];
                         if (mouseCell.isOpen) {
@@ -390,6 +423,7 @@
             }
 
             function winGame() {
+                pauseTimer();
                 state = "won";
                 console.log("Won");
                 grid.forEachCell((cell) => {
@@ -413,9 +447,38 @@
                         incorrectlyMarkedMines = true;
                     }
                 });
+                updateRemainingCellCount();
                 if (!incorrectlyMarkedMines) {
                     winGame();
                 }
+            }
+
+            function updateTimer() {
+                timerValue += 1;
+                updateTimerDisplay();
+            }
+
+            let timeNumberFormat = new Intl.NumberFormat('en-US', {
+                minimumIntegerDigits: "2"
+            });
+            function updateTimerDisplay() {
+                document.getElementById("time").textContent = timeNumberFormat.format(Math.floor(timerValue / 60)) + ":" + timeNumberFormat.format(Math.floor(timerValue % 60));
+            }
+
+            let intervalId = null;
+            let timerValue = 0;
+            function unpauseTimer() {
+                if (intervalId === null) {
+                    intervalId = setInterval(updateTimer, 1000);
+                }
+            }
+            function pauseTimer() {
+                clearInterval(intervalId);
+                intervalId = null;
+            }
+            function resetTimer() {
+                timerValue = 0;
+                updateTimerDisplay();
             }
 
             function loaded(e) {
@@ -440,6 +503,14 @@
                 let field = document.getElementById("field");
                 field.setAttribute("width", grid.pixelWidth() * scaleFactor);
                 field.setAttribute("height", grid.pixelHeight() * scaleFactor);
+
+                document.onvisibilitychange = (event) => {
+                    if (document.hidden) {
+                        pauseTimer();
+                    } else {
+                        unpauseTimer();
+                    }
+                }
             }
 
             window.onload = loaded
@@ -509,24 +580,25 @@
             </defs>
         </svg>
 
-        <div id="toolbar">
-            <form>
-                Tap: <input id="radioMine" type="radio" name="mode" value="mine" checked>
-                <label for="radioMine">
-                    <svg width="30" height="30">
-                        <title>Open cells</title>
-                        <use href="#svgMineRef" x="15" y="15" />
-                    </svg>
-                </label>
-                <input id="radioFlag" type="radio" name="mode" value="flag">
-                <label for="radioFlag">
-                    <svg width="30" height="30">
-                        <title>Flag cells</title>
-                        <use href="#svgFlagRef" x="15" y="15" />
-                    </svg>
-                </label>
-            </form>
-        </div>
+        <div class="toolbar"><div id="time">00:00</div></div>
+        <form class="toolbar">
+            Tap: <input id="radioMine" type="radio" name="mode" value="mine" checked>
+            <label for="radioMine">
+                <svg width="30" height="30">
+                    <title>Open cells</title>
+                    <use href="#svgMineRef" x="15" y="15" />
+                </svg>
+            </label>
+            <input id="radioFlag" type="radio" name="mode" value="flag">
+            <label for="radioFlag">
+                <svg width="30" height="30">
+                    <title>Flag cells</title>
+                    <use href="#svgFlagRef" x="15" y="15" />
+                </svg>
+            </label>
+        </form>
+        <div class="toolbar"><div id="mines">9999</div></div>
+
         <div id="fieldArea">
             <div id="fieldAreaInterior">
                 <svg id="field" version="1.1"><g id="main"></g></svg>
