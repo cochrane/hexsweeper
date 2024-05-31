@@ -301,43 +301,33 @@
                 };
 
                 const hasAuxClick = "onauxclick" in cellChild;
+                let auxClickAction = (event) => {
+                    if (state != "normal") {
+                        // Starting new game
+                        restart();
+                        return;
+                    }
+                    unpauseTimer();
+
+                    var mouseCell = grid.rows[cellY][cellX];
+                    if (mouseCell.isOpen) {
+                        return;
+                    }
+                    
+                    grid.findMinesIfNecessary(mouseCell);
+                    toggleCellMarked(mouseCell);
+                };
 
                 cellChild.oncontextmenu = (event) => {
                     event.preventDefault();
 
                     if (!hasAuxClick) {
                         // Workaround for Safari
-                        if (state != "normal") {
-                            // Starting new game
-                            restart();
-                            return;
-                        }
-                        unpauseTimer();
-                        
-                        var mouseCell = grid.rows[cellY][cellX];
-                        if (mouseCell.isOpen) {
-                            return;
-                        }
-                        
-                        grid.findMinesIfNecessary(mouseCell);
-                        toggleCellMarked(mouseCell);
+                        auxClickAction(event);
                     }
                 };
                 if (hasAuxClick) {
-                    cellChild.onauxclick = (event) => {
-                        if (state != "normal") {
-                            // Starting new game
-                            restart();
-                            return;
-                        }
-                        unpauseTimer();
-
-                        var mouseCell = grid.rows[cellY][cellX];
-                        if (mouseCell.isOpen) {
-                            return;
-                        }
-                        toggleCellMarked(mouseCell);
-                    };
+                    cellChild.onauxclick = auxClickAction;
                 }
 
                 return cellChild;
@@ -413,7 +403,7 @@
                     cell.mineNeighbors = mineNeighbors;
                     if (mineNeighbors == 0) {
                         for (var i in neighbors) {
-                            if (neighbors[i].mineNeighbors < 0 && !neighbors[i].isMarked) {
+                            if (neighbors[i].mineNeighbors < 0 && !neighbors[i].isMarked && !cellQueue.includes(neighbors[i])) {
                                 cellQueue.push(neighbors[i]);
                             }
                         }
