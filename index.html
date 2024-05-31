@@ -248,7 +248,10 @@
                         markedCount += 1;
                     }
                 });
-                document.getElementById("mines").textContent = grid.minesCount - markedCount;
+                writeRemainingCellCount(grid.minesCount - markedCount);
+            }
+            function writeRemainingCellCount(count) {
+                document.getElementById("mines").textContent = count;
             }
 
             function createSvgCell(cellX, cellY) {
@@ -425,6 +428,7 @@
                     }
                 });
                 updateGrid();
+                writeRemainingCellCount(0);
             }
 
             function toggleCellMarked(mouseCell) {
