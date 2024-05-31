@@ -433,6 +433,11 @@
             function toggleCellMarked(mouseCell) {
                 mouseCell.isMarked = !mouseCell.isMarked;
                 updateSvgCell(mouseCell);
+                updateRemainingCellCount();
+                
+                if (!grid.hasSetMines) {
+                    return;
+                }
 
                 // Check if all the mines are marked
                 let incorrectlyMarkedMines = false;
@@ -443,7 +448,6 @@
                         incorrectlyMarkedMines = true;
                     }
                 });
-                updateRemainingCellCount();
                 if (!incorrectlyMarkedMines) {
                     winGame();
                 }
